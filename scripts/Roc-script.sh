@@ -76,6 +76,18 @@ git clone --depth=1 https://github.com/nikkinikki-org/OpenWrt-momo package/momo
 git clone --depth=1 https://github.com/nikkinikki-org/OpenWrt-nikki package/nikki
 chmod +x package/luci-app-athena-led/root/etc/init.d/athena_led package/luci-app-athena-led/root/usr/sbin/athena-led
 
+# AdGuard Home
+git clone --depth=1 https://github.com/AdguardTeam/AdGuardHome package/AdGuardHome
+git clone --depth=1 https://github.com/rufengsuixing/luci-app-adguardhome package/luci-app-adguardhome
+
+# Tailscale
+git clone --depth=1 https://github.com/tailscale/tailscale package/tailscale
+git clone --depth=1 https://github.com/JiaY-shi/luci-app-tailscale package/luci-app-tailscale
+
+# Bandix
+git clone --depth=1 https://github.com/sirpdboy/luci-app-bandwidthd package/luci-app-bandix
+
+
 ### PassWall & OpenClash ###
 
 # 移除 OpenWrt Feeds 自带的核心库
