@@ -85,7 +85,8 @@ git clone --depth=1 https://github.com/tailscale/tailscale package/tailscale
 git clone --depth=1 https://github.com/JiaY-shi/luci-app-tailscale package/luci-app-tailscale
 
 # Bandix
-git clone --depth=1 https://github.com/sirpdboy/luci-app-bandwidthd package/luci-app-bandix
+git clone --depth=1 https://github.com/timsaya/openwrt-bandix package/openwrt-bandix
+git clone --depth=1 https://github.com/timsaya/luci-app-bandix package/luci-app-bandix
 
 
 ### PassWall & OpenClash ###
