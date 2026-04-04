@@ -81,8 +81,7 @@ rm -rf feeds/packages/net/adguardhome
 rm -rf feeds/luci/applications/luci-app-adguardhome
 
 # ========== 拉取AdGuardHome ==========
-git clone --depth=1 https://github.com/rufengsuixing/AdGuardHome package/AdGuardHome
-git clone --depth=1 https://github.com/rufengsuixing/luci-app-adguardhome package/luci-app-adguardhome
+git clone --depth=1 https://github.com/AdguardTeam/AdGuardHome package/AdGuardHome
 
 # Tailscale（异地组网）
 git clone --depth=1 https://github.com/GuNanOvO/openwrt-tailscale package/tailscale
