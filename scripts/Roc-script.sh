@@ -78,9 +78,9 @@ chmod +x package/luci-app-athena-led/root/etc/init.d/athena_led package/luci-app
 
 
 # ========== 拉取AdGuardHome ==========
-git clone --depth=1 https://github.com/AdguardTeam/AdGuardHome package/AdGuardHome
+git clone --depth=1 https://github.com/AdguardTeam/AdGuardHome package/adguardhome
 git clone --depth=1 https://github.com/sirpdboy/luci-app-adguardhome.git package/luci-app-adguardhome
-mv -f package/AdGuardHome feeds/packages/net/AdGuardHome
+mv -f package/adguardhome feeds/packages/net/adguardhome
 mv -f package/luci-app-adguardhome feeds/luci/applications/luci-app-adguardhome
 
 # Tailscale（异地组网）
