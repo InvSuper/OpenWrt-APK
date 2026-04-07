@@ -76,6 +76,7 @@ git clone --depth=1 https://github.com/nikkinikki-org/OpenWrt-momo package/momo
 git clone --depth=1 https://github.com/nikkinikki-org/OpenWrt-nikki package/nikki
 chmod +x package/luci-app-athena-led/root/etc/init.d/athena_led package/luci-app-athena-led/root/usr/sbin/athena-led
 
+
 # ========== 拉取luci-app-adguardhome界面 ==========
 # 删除源码自带的版本（如果存在）
 rm -rf feeds/luci/applications/luci-app-adguardhome
@@ -84,9 +85,6 @@ rm -rf feeds/luci/i18n/luci-i18n-adguardhome-zh-cn
 rm -rf package/luci-app-adguardhome
 # 克隆sirpdboy的版本到package目录
 git clone --depth=1 https://github.com/sirpdboy/luci-app-adguardhome.git package/luci-app-adguardhome
-# 创建空目录防止feeds install重新安装
-mkdir -p feeds/luci/applications/luci-app-adguardhome
-mkdir -p feeds/luci/i18n/luci-i18n-adguardhome-zh-cn
 
 # Tailscale（异地组网）
 git clone --depth=1 https://github.com/GuNanOvO/openwrt-tailscale package/tailscale
@@ -111,3 +109,9 @@ git clone --depth=1 https://github.com/vernesong/OpenClash package/luci-app-open
 
 # 清理 PassWall 的 chnlist 规则文件
 echo "baidu.com"  > package/luci-app-passwall/luci-app-passwall/root/usr/share/passwall/rules/chnlist
+
+# 重新更新和安装 feeds（只更新自定义添加的包）
+./scripts/feeds update -i
+./scripts/feeds install -a
+
+
