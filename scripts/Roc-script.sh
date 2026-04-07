@@ -78,6 +78,7 @@ chmod +x package/luci-app-athena-led/root/etc/init.d/athena_led package/luci-app
 
 
 # ========== 拉取adguardhome ui界面 ==========
+./scripts/feeds update -a
 # 移除源码自带的版本
 rm -rf feeds/luci/applications/luci-app-adguardhome
 # 克隆
@@ -110,7 +111,6 @@ git clone --depth=1 https://github.com/vernesong/OpenClash package/luci-app-open
 echo "baidu.com"  > package/luci-app-passwall/luci-app-passwall/root/usr/share/passwall/rules/chnlist
 
 # 更新包源
-./scripts/feeds update -a
 ./scripts/feeds install -f -a
 
 # 重新加载配置
