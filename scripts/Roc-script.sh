@@ -76,17 +76,17 @@ git clone --depth=1 https://github.com/nikkinikki-org/OpenWrt-momo package/momo
 git clone --depth=1 https://github.com/nikkinikki-org/OpenWrt-nikki package/nikki
 chmod +x package/luci-app-athena-led/root/etc/init.d/athena_led package/luci-app-athena-led/root/usr/sbin/athena-led
 
- ========== 拉取luci-app-adguardhome界面 ==========
-# 删除源码自带的版本（如果存在）
+# ========== 拉取luci-app-adguardhome界面 ==========
+# 先删除源码自带的版本（如果存在）
 rm -rf feeds/luci/applications/luci-app-adguardhome
 rm -rf feeds/luci/i18n/luci-i18n-adguardhome-zh-cn
 # 克隆sirpdboy的版本到临时目录
 git clone --depth=1 https://github.com/sirpdboy/luci-app-adguardhome.git package/tmp-adguardhome
 # 检查仓库结构，如果代码在子目录中，移动到正确位置
 if [ -d "package/tmp-adguardhome/luci-app-adguardhome" ]; then
-    mv -f package/tmp-adguardhome/luci-app-adguardhome package/luci-app-adguardhome
+    mv -f package/tmp-adguardhome/luci-app-adguardhome feeds/luci/applications/luci-app-adguardhome
 else
-    mv -f package/tmp-adguardhome/* package/luci-app-adguardhome/
+    mv -f package/tmp-adguardhome/* feeds/luci/applications/luci-app-adguardhome/
 fi
 # 删除临时目录
 rm -rf package/tmp-adguardhome
