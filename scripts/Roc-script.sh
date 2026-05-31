@@ -86,6 +86,14 @@ git clone --depth=1 https://github.com/sirpdboy/luci-app-adguardhome temp-luci-a
 cp -rf temp-luci-adguard/luci-app-adguardhome package/
 rm -rf temp-luci-adguard  # 清理临时目录
 
+# ========== 拉取官方最新版Aurora极光主题 ==========
+# 删除feeds里自带的旧版Aurora主题
+rm -rf feeds/luci/themes/luci-theme-aurora
+rm -rf feeds/luci/applications/luci-app-aurora-config
+# 克隆官方最新版源码到package目录
+git clone --depth=1 https://github.com/eamonxg/luci-theme-aurora package/luci-theme-aurora
+git clone --depth=1 https://github.com/eamonxg/luci-app-aurora-config package/luci-app-aurora-config
+
 # Tailscale（异地组网）
 git clone --depth=1 https://github.com/GuNanOvO/openwrt-tailscale package/tailscale
 
