@@ -2,6 +2,11 @@ name: Upstream-Check-IPQ60XX
 
 on:
   workflow_dispatch:
+    inputs:
+      force_build:
+        description: '忽略状态文件，强制触发编译'
+        required: false
+        default: 'false'
   schedule:
     - cron: '0 2 * * *'
 
@@ -9,13 +14,190 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Debug 1 - echo
-        run: echo "hello world"
 
-      - name: Debug 2 - curl test
-        run: curl -s "https://api.github.com/repos/LiBwrt/openwrt-6.x/commits/25.12-nss" -o /tmp/api_resp.json && echo "curl OK, size=$(wc -c < /tmp/api_resp.json)"
+      - name: Checkout Repo
+        uses: actions/checkout@master
 
-      - name: Debug 3 - jq parse
+      - name: Fetch Upstream Commit
+        id: upstream
         run: |
-          SHA=$(jq -r '.sha' /tmp/api_resp.json)
-          echo "Latest SHA: $SHA"
+          curl -s "https://api.github.com/repos/LiBwrt/openwrt-6.x/commits/25.12-nss" -o /tmp/upstream.json
+          LATEST=$(jq -r '.sha' /tmp/upstream.json)
+          LATEST_MSG=$(jq -r '.commit.message.split("\n")[0]' /tmp/upstream.json)
+          LATEST_DATE=$(jq -r '.commit.author.date' /tmp/upstream.json)
+          echo "SHA=$LATEST"
+          echo "MSG=$LATEST_MSG"
+          echo "DATE=$LATEST_DATE"
+          echo "LATEST_SHA=$LATEST" >> $GITHUB_OUTPUT
+          echo "LATEST_MSG=$LATEST_MSG" >> $GITHUB_OUTPUT
+          echo "LATEST_DATE=$LATEST_DATE" >> $GITHUB_OUTPUT
+
+      - name: Load State File
+        id: state
+        run: |
+          if [ -f ".github/upstream_last_commit.txt" ]; then
+            LAST=$(cat .github/upstream_last_commit.txt | head -1 | tr -d '[:space:]')
+          else
+            LAST="INIT"
+          fi
+          echo "Last known: $LAST"
+          echo "LAST_SHA=$LAST" >> $GITHUB_OUTPUT
+
+      - name: Compare & Decide
+        id: compare
+        run: |
+          LATEST="${{ steps.upstream.outputs.LATEST_SHA }}"
+          LAST="${{ steps.state.outputs.LAST_SHA }}"
+          FORCE="${{ inputs.force_build }}"
+
+          if [ "$FORCE" = "true" ]; then
+            echo "Force build"
+            echo "BUILD=1" >> $GITHUB_OUTPUT
+            echo "LAST_SHA=$LAST" >> $GITHUB_OUTPUT
+            echo "UPSTREAM_SHA=$LATEST" >> $GITHUB_OUTPUT
+          elif [ "$LAST" = "INIT" ]; then
+            echo "First run"
+            echo "BUILD=1" >> $GITHUB_OUTPUT
+            echo "INITIAL_RUN=1" >> $GITHUB_OUTPUT
+            echo "UPSTREAM_SHA=$LATEST" >> $GITHUB_OUTPUT
+          elif [ "$LAST" = "$LATEST" ]; then
+            echo "No update, skip."
+            echo "BUILD=0" >> $GITHUB_OUTPUT
+          else
+            echo "Update detected!"
+            echo "BUILD=1" >> $GITHUB_OUTPUT
+            echo "LAST_SHA=$LAST" >> $GITHUB_OUTPUT
+            echo "UPSTREAM_SHA=$LATEST" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Parse Update Diff
+        if: steps.compare.outputs.BUILD == '1'
+        id: diff
+        run: |
+          LATEST="${{ steps.upstream.outputs.LATEST_SHA }}"
+          LAST="${{ steps.compare.outputs.LAST_SHA }}"
+          INITIAL="${{ steps.compare.outputs.INITIAL_RUN }}"
+
+          if [ "$INITIAL" != "1" ] && [ -n "$LAST" ]; then
+            curl -s "https://api.github.com/repos/LiBwrt/openwrt-6.x/compare/${LAST}...${LATEST}" -o /tmp/compare.json
+            TOTAL_FILES=$(jq '.files | length' /tmp/compare.json)
+            TOTAL_COMMITS=$(jq '.commits | length' /tmp/compare.json)
+            echo "Total commits: $TOTAL_COMMITS"
+            echo "Total files: $TOTAL_FILES"
+
+            echo "--- Commits ---"
+            jq -r '.commits[] | "[" + .sha[0:10] + "] " + .commit.message.split("\n")[0] + " | " + .commit.author.name + " | " + .commit.author.date[0:16]' /tmp/compare.json | head -10
+
+            echo "--- Key Files (IPQ60XX/driver) ---"
+            jq -r '.files[].filename' /tmp/compare.json | grep -iE 'ipq60xx|qualcommax|qca|nss|quic|edma|qsdk' | head -15 || echo "(无专属驱动变更)"
+
+            echo "--- All Changed Files (前20) ---"
+            jq -r '.files[].filename' /tmp/compare.json | head -20
+          fi
+
+      - name: Send ServerChan
+        if: steps.compare.outputs.BUILD == '1'
+        continue-on-error: true
+        env:
+          SERVERCHAN_SENDKEY: ${{ secrets.SERVERCHAN_SENDKEY }}
+        run: |
+          if [ -z "$SERVERCHAN_SENDKEY" ]; then
+            echo "⚠️ SERVERCHAN_SENDKEY not configured"
+            exit 0
+          fi
+
+          INITIAL="${{ steps.compare.outputs.INITIAL_RUN }}"
+          LAST="${{ steps.compare.outputs.LAST_SHA }}"
+          LATEST="${{ steps.upstream.outputs.LATEST_SHA }}"
+          LATEST_MSG="${{ steps.upstream.outputs.LATEST_MSG }}"
+          LATEST_DATE="${{ steps.upstream.outputs.LATEST_DATE }}"
+
+          if [ "$INITIAL" = "1" ]; then
+            TITLE="✅ IPQ60XX 自动编译监控已就绪"
+            DESP="**上游**: LiBwrt/openwrt-6.x (25.12-nss)
+**最新**: ${LATEST:0:12}
+
+每天北京时间 10:00 自动检测，有更新会：
+1. 📬 推送变更摘要
+2. 🔄 触发 IPQ60XX-NOWIFI-LibWrt 编译
+3. 📦 编译结果推送"
+          else
+            # 生成变更摘要
+            TOTAL_COMMITS=$(jq '.commits | length' /tmp/compare.json 2>/dev/null || echo "?")
+            TOTAL_FILES=$(jq '.files | length' /tmp/compare.json 2>/dev/null || echo "?")
+            COMMITS_TEXT=$(jq -r '.commits[] | "### [\(.sha[0:10])] \(.commit.message.split("\n")[0])\n- 👤 \(.commit.author.name)\n- 🕐 \(.commit.author.date[0:16])\n"' /tmp/compare.json 2>/dev/null | head -30)
+            KEY_FILES=$(jq -r '.files[].filename' /tmp/compare.json 2>/dev/null | grep -iE 'ipq60xx|qualcommax|qca|nss|quic|edma|qsdk' | head -15 || echo "（无专属驱动变更）")
+            ALL_FILES=$(jq -r '.files[].filename' /tmp/compare.json 2>/dev/null | head -20)
+
+            TITLE="🔔 IPQ60XX 上游更新"
+            DESP="## 🔔 IPQ60XX 上游更新
+
+**范围**: \`${LAST:0:12}\` → \`${LATEST:0:12}\`
+**统计**: ${TOTAL_COMMITS} commits / ${TOTAL_FILES} files
+
+### 🔑 IPQ60XX/驱动相关
+\`\`\`
+${KEY_FILES}
+\`\`\`
+
+### 📝 提交记录
+${COMMITS_TEXT}
+
+### 📁 全部变更（前20）
+\`\`\`
+${ALL_FILES}
+\`\`\`
+
+### 🔗 链接
+- [完整 Diff](https://github.com/LiBwrt/openwrt-6.x/compare/${LAST}...${LATEST})
+- [上游仓库](https://github.com/LiBwrt/openwrt-6.x)
+- [编译工作流](https://github.com/${{ github.repository }}/actions/workflows/IPQ60XX-NOWIFI-LibWrt.yml)"
+          fi
+
+          echo "Sending ServerChan..."
+          if [[ "$SERVERCHAN_SENDKEY" == sctp* ]]; then
+            UID=$(echo "$SERVERCHAN_SENDKEY" | sed -n 's/^sctp\([0-9]*\)t.*/\1/p')
+            echo "📱 Server酱³ uid=$UID"
+            curl -sS -X POST "https://${UID}.push.ft07.com/send/${SERVERCHAN_SENDKEY}.send" \
+              --data-urlencode "title=${TITLE}" --data-urlencode "desp=${DESP}" || true
+          else
+            echo "📱 Server酱Turbo"
+            curl -sS -X POST "https://sctapi.ftqq.com/${SERVERCHAN_SENDKEY}.send" \
+              --data-urlencode "title=${TITLE}" --data-urlencode "desp=${DESP}" || true
+          fi
+          echo "✅ ServerChan done"
+
+      - name: Trigger Build Workflow
+        if: steps.compare.outputs.BUILD == '1' && steps.compare.outputs.INITIAL_RUN != '1'
+        continue-on-error: true
+        run: |
+          TRIGGER_SHA="${{ steps.compare.outputs.UPSTREAM_SHA }}"
+          TOKEN="${{ secrets.DISPATCH_TOKEN }}"
+          if [ -z "$TOKEN" ]; then
+            TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          fi
+          echo "Triggering IPQ60XX-NOWIFI-LibWrt.yml..."
+          RESULT=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -H "Content-Type: application/json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/IPQ60XX-NOWIFI-LibWrt.yml/dispatches" \
+            -d "{\"ref\":\"master\",\"inputs\":{\"upstream_sha\":\"${TRIGGER_SHA}\",\"auto_trigger\":\"true\"}}")
+          echo "Result: HTTP $RESULT"
+          if [ "$RESULT" = "204" ] || [ "$RESULT" = "202" ]; then
+            echo "✅ Build triggered successfully"
+          else
+            echo "❌ Failed. Need DISPATCH_TOKEN (PAT with repo scope)."
+          fi
+
+      - name: Update State File
+        if: steps.compare.outputs.BUILD == '1'
+        run: |
+          echo "${{ steps.compare.outputs.UPSTREAM_SHA }}" > .github/upstream_last_commit.txt
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add .github/upstream_last_commit.txt
+          git commit -m "chore: update upstream tracking state" || true
+          git push origin master || true
+          echo "✅ State file updated and pushed"
