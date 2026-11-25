@@ -22,13 +22,20 @@ jobs:
         id: upstream
         run: |
           curl -s "https://api.github.com/repos/LiBwrt/openwrt-6.x/commits/25.12-nss" -o /tmp/upstream.json
+          echo "--- response size ---"
+          wc -c < /tmp/upstream.json
+          echo "--- response head ---"
+          head -c 300 /tmp/upstream.json
+          echo ""
           LATEST=$(jq -r '.sha' /tmp/upstream.json)
-          LATEST_MSG=$(jq -r '.commit.message.split("\n")[0]' /tmp/upstream.json)
-          LATEST_DATE=$(jq -r '.commit.author.date' /tmp/upstream.json)
-          echo "SHA=$LATEST"
+          echo "--- parsed SHA ---"
+          echo "$LATEST"
+          if [ -z "$LATEST" ] || [ "$LATEST" = "null" ]; then
+            echo "ERROR: failed to parse SHA"
+            exit 1
+          fi
           echo "LATEST_SHA=$LATEST" >> $GITHUB_OUTPUT
-          echo "LATEST_MSG=$LATEST_MSG" >> $GITHUB_OUTPUT
-          echo "LATEST_DATE=$LATEST_DATE" >> $GITHUB_OUTPUT
+          echo "OK"
 
       - name: Load State File
         id: state
