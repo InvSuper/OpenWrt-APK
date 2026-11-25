@@ -6,11 +6,16 @@ on:
     - cron: '0 2 * * *'
 
 jobs:
-  test:
+  check:
     runs-on: ubuntu-latest
     steps:
-      - name: Step 1
+      - name: Debug 1 - echo
+        run: echo "hello world"
+
+      - name: Debug 2 - curl test
+        run: curl -s "https://api.github.com/repos/LiBwrt/openwrt-6.x/commits/25.12-nss" -o /tmp/api_resp.json && echo "curl OK, size=$(wc -c < /tmp/api_resp.json)"
+
+      - name: Debug 3 - jq parse
         run: |
-          echo "=== Test Start ==="
-          curl -s "https://api.github.com/repos/LiBwrt/openwrt-6.x/commits/25.12-nss" | python3 -c "import sys,json; print('Latest:', json.load(sys.stdin)['sha'][:12])"
-          echo "=== Test Done ==="
+          SHA=$(jq -r '.sha' /tmp/api_resp.json)
+          echo "Latest SHA: $SHA"
