@@ -172,3 +172,17 @@ if [ -f "tools/gmp/Makefile" ]; then
     echo 'HOST_CONFIGURE_CMD:=printf "[aws]\ndownload-ci-aws = false\n" > bootstrap.tmp && ./bootstrap --disable-download-ci-aws && ./configure' >> tools/gmp/Makefile
   fi
 fi
+
+# ========== 内置 Aurora 主题作者的 APK 软件源（公钥 + 源地址） ==========
+# 目的：刷机后无需再手动执行官方 install.sh，LuCI 软件包页面点“更新列表”即可升级主题
+# 原理：OpenWrt 构建系统会把源码根目录下的 files/ 覆盖层打进固件，
+#       最终落到设备的 /etc/apk/keys/eamonxg.pem 和 /etc/apk/repositories.d/customfeeds.list
+AURORA_PEM_SRC="$(dirname "$0")/aurora-feed/eamonxg.pem"
+if [ -f "$AURORA_PEM_SRC" ]; then
+  mkdir -p files/etc/apk/keys files/etc/apk/repositories.d
+  cp -f "$AURORA_PEM_SRC" files/etc/apk/keys/eamonxg.pem
+  chmod 644 files/etc/apk/keys/eamonxg.pem
+  echo "https://openwrt.eamonxg.fun/snapshots/apk/packages.adb" > files/etc/apk/repositories.d/customfeeds.list
+else
+  echo "[aurora-feed] 未找到公钥文件，跳过内置：$AURORA_PEM_SRC" >&2
+fi
